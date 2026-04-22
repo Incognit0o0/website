@@ -81,7 +81,11 @@ async function startServer() {
     if (!pool) return { id: 'fallback', username: 'Guest', balance: 10000, is_admin: false };
     try {
       const [rows]: any = await pool.query('SELECT id, username, balance, is_admin FROM users WHERE id = ?', [id]);
-      return rows[0] || null;
+      if (rows[0]) {
+        rows[0].balance = Number(rows[0].balance);
+        return rows[0];
+      }
+      return null;
     } catch (e) {
       console.error('getUserById error:', e);
       return null;
@@ -462,6 +466,14 @@ async function startServer() {
   }
 
   // --- API ROUTES ---
+
+  apiRouter.get('/me', async (req, res) => {
+    const userId = req.query.id as string;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+    const user = await getUserById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  });
 
   apiRouter.post('/register', async (req, res) => {
     const { username, password } = req.body;

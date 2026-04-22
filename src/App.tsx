@@ -60,17 +60,20 @@ function SmoothTimerDisplay({ initialSeconds, onZero, active = true, className =
 }
 
 function AnimatedNumber({ value }: { value: number }) {
-  const [displayValue, setDisplayValue] = useState(value);
+  const numericValue = typeof value === 'number' ? value : Number(value) || 0;
+  const [displayValue, setDisplayValue] = useState(numericValue);
   const requestRef = useRef<number | null>(null);
-  const targetValueRef = useRef(value);
+  const targetValueRef = useRef(numericValue);
 
   useEffect(() => {
-    targetValueRef.current = value;
+    const nextValue = typeof value === 'number' ? value : Number(value) || 0;
+    targetValueRef.current = nextValue;
     const animate = () => {
       setDisplayValue(prev => {
-        const diff = targetValueRef.current - prev;
+        const val = typeof prev === 'number' ? prev : Number(prev) || 0;
+        const diff = targetValueRef.current - val;
         if (Math.abs(diff) < 0.1) return targetValueRef.current;
-        return prev + diff * 0.12; 
+        return val + diff * 0.12; 
       });
       requestRef.current = requestAnimationFrame(animate);
     };
@@ -78,7 +81,8 @@ function AnimatedNumber({ value }: { value: number }) {
     return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); };
   }, [value]);
 
-  return <>{Math.floor(displayValue).toLocaleString()}</>;
+  const finalDisplay = typeof displayValue === 'number' ? displayValue : 0;
+  return <>{Math.floor(finalDisplay).toLocaleString()}</>;
 }
 
 interface Toast {
@@ -301,7 +305,11 @@ export default function App() {
           // (No need to explicitly update selectedRoomId, as useMemo handles it via rooms)
         } else if (payload.type === 'USER_UPDATE') {
           if (payload.data.userId === user?.id) {
-            setUser(prev => prev ? { ...prev, ...payload.data } : null);
+            setUser(prev => {
+              if (!prev) return null;
+              const newBalance = payload.data.balance !== undefined ? Number(payload.data.balance) : prev.balance;
+              return { ...prev, ...payload.data, balance: newBalance };
+            });
           }
           if (user?.is_admin && payload.data.adminCommission !== undefined) {
              setAdminStats((prev: any) => prev ? { ...prev, adminCommission: payload.data.adminCommission } : null);
@@ -401,12 +409,16 @@ export default function App() {
   const activeParticipations = useMemo(() => {
     const uniqueRooms = new Map<string, Room>();
     rooms.forEach(room => {
-      if (room.players.some(p => !p.isBot) || myRoomIds.includes(room.id)) {
+      // ONLY show rooms where the CURRENT user is a player
+      const amIPlaying = room.players.some(p => p.id === user?.id);
+      const isMyRoom = myRoomIds.includes(room.id);
+      
+      if (amIPlaying || isMyRoom) {
         uniqueRooms.set(room.id, room);
       }
     });
     return Array.from(uniqueRooms.values());
-  }, [rooms, myRoomIds]);
+  }, [rooms, myRoomIds, user?.id]);
 
   // Function to apply filters and sort
   const applySortAndFilter = useCallback((currentRooms: Room[]) => {
@@ -419,8 +431,8 @@ export default function App() {
       })
       .sort((a, b) => {
         // Prioritize rooms where user is a player
-        const aIsMine = a.players.some(p => !p.isBot);
-        const bIsMine = b.players.some(p => !p.isBot);
+        const aIsMine = a.players.some(p => p.id === user?.id);
+        const bIsMine = b.players.some(p => p.id === user?.id);
         if (aIsMine && !bIsMine) return -1;
         if (!aIsMine && bIsMine) return 1;
 
@@ -484,8 +496,8 @@ export default function App() {
 
         const [roomsData, userData, statsData, historyData] = await Promise.all([
           fetchSilently('/api/rooms'),
-          user ? fetchSilently(`/api/user/${user.id}`) : Promise.resolve(null),
-          (user?.is_admin) ? fetchSilently('/api/admin/stats') : Promise.resolve(null),
+          user?.id ? fetchSilently(`/api/me?id=${user.id}`) : Promise.resolve(null),
+          (Boolean(user?.is_admin)) ? fetchSilently('/api/admin/stats') : Promise.resolve(null),
           fetchSilently('/api/history')
         ]);
         
@@ -517,7 +529,11 @@ export default function App() {
           }
         }
         
-        if (userData) setUser(userData);
+        if (userData) {
+        const numericUser = { ...userData, balance: Number(userData.balance) };
+        setUser(numericUser);
+        localStorage.setItem('vip_user', JSON.stringify(numericUser));
+      }
         if (statsData) setAdminStats(statsData);
         if (historyData) setHistory(historyData);
 
@@ -717,7 +733,7 @@ export default function App() {
             </div>
           </div>
 
-          {user?.is_admin && (
+          {Boolean(user?.is_admin) && (
             <button 
               onClick={() => setIsAdminView(!isAdminView)}
               className="glass p-3 rounded-xl transition-all hover:bg-neutral-800"
@@ -1902,7 +1918,7 @@ function RaceStage({ room, onBack, addToast, userId }: { room: Room, onBack: () 
           {room.horses.map((horse) => {
             const progress = room.raceLog.find(l => l.horseId === horse.id)?.positions[currentTick] ?? 0;
             const isWinner = isFinished && horse.id === room.winnerHorseId;
-            const isMe = room.players.find(p => !p.isBot)?.horseIds.includes(horse.id);
+            const isMe = room.players.find(p => p.id === userId)?.horseIds.includes(horse.id);
             const racersCount = room.horses.length;
             
             // Adjusted smaller scale for racers
