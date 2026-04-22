@@ -748,7 +748,7 @@ export default function App() {
           userId={user?.id || ''}
         />
       ) : selectedRoom && (selectedRoom.status === 'racing' || selectedRoom.status === 'finished') && selectedRoomId === selectedRoom.id ? (
-        <RaceStage room={selectedRoom} onBack={() => setSelectedRoomId(null)} addToast={addToast} />
+        <RaceStage room={selectedRoom} onBack={() => setSelectedRoomId(null)} addToast={addToast} userId={user?.id} />
       ) : (
         <main>
           {/* Advanced Filtering & Controls */}
@@ -869,6 +869,7 @@ export default function App() {
                     <RoomCard 
                       key={room.id} 
                       room={room} 
+                      userId={user?.id}
                       isMyCreation={myRoomIds.includes(room.id)}
                       onSelect={() => setSelectedRoomId(room.id)} 
                     />
@@ -1070,6 +1071,7 @@ export default function App() {
           <LobbyModal 
             room={selectedRoom} 
             balance={user?.balance ?? 0}
+            userId={user?.id}
             onClose={() => setSelectedRoomId(null)} 
             onJoin={handleJoin}
             onBoost={handleBoost}
@@ -1249,9 +1251,9 @@ function AuthModal({ mode, setMode, form, setForm, error, onSubmit }: any) {
   );
 }
 
-const RoomCard = React.memo(({ room, onSelect, isMyCreation }: any) => {
+const RoomCard = React.memo(({ room, onSelect, isMyCreation, userId }: any) => {
   const isRacing = room.status === 'racing';
-  const isJoined = room.players.some((p: any) => !p.isBot);
+  const isJoined = room.players.some((p: any) => p.id === userId);
   const Icon = room.theme === 'space' ? Rocket : room.theme === 'f1' ? Car : Fence;
 
   const statusMap: Record<string, string> = {
@@ -1326,10 +1328,10 @@ const RoomCard = React.memo(({ room, onSelect, isMyCreation }: any) => {
   );
 });
 
-function LobbyModal({ room, balance, onClose, onJoin, onBoost, isPlayingElsewhere }: { room: Room, balance: number, onClose: () => void, onJoin: (ids: string[]) => void, onBoost: (id: string) => void, isPlayingElsewhere: boolean }) {
+function LobbyModal({ room, balance, onClose, onJoin, onBoost, isPlayingElsewhere, userId }: { room: Room, balance: number, onClose: () => void, onJoin: (ids: string[]) => void, onBoost: (id: string) => void, isPlayingElsewhere: boolean, userId?: string }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const isJoined = room.players.some(p => !p.isBot);
-  const myPlayer = room.players.find(p => !p.isBot);
+  const isJoined = room.players.some(p => p.id === userId);
+  const myPlayer = room.players.find(p => p.id === userId);
 
   const themeMap: Record<string, string> = {
     'horses': 'Лошади',
@@ -1711,7 +1713,7 @@ function CreateRoomModal({ onClose, onCreated, initialValues }: any) {
   );
 }
 
-function RaceStage({ room, onBack, addToast }: { room: Room, onBack: () => void, addToast: any }) {
+function RaceStage({ room, onBack, addToast, userId }: { room: Room, onBack: () => void, addToast: any, userId?: string }) {
   const [currentTick, setCurrentTick] = useState(0);
   const totalTicks = room.raceLog[0]?.positions.length ?? 0;
   const toastSent = useRef(false);
@@ -1752,11 +1754,15 @@ function RaceStage({ room, onBack, addToast }: { room: Room, onBack: () => void,
     if (isFinished && !toastSent.current) {
       toastSent.current = true;
       const winnerPlayer = room.players.find(p => p.horseIds.includes(room.winnerHorseId!));
-      const isUserWinner = winnerPlayer && !winnerPlayer.isBot;
-      if (isUserWinner) addToast('Победа!', 'success');
-      else addToast('Вы проиграли!', 'error');
+      const myParticipation = room.players.find(p => p.id === userId);
+      
+      if (myParticipation) {
+        const isUserWinner = winnerPlayer && winnerPlayer.id === userId;
+        if (isUserWinner) addToast('Победа!', 'success');
+        else addToast('Вы проиграли!', 'error');
+      }
     }
-  }, [isFinished, room.winnerHorseId, room.players, addToast]);
+  }, [isFinished, room.winnerHorseId, room.players, addToast, userId]);
 
   // Countdown for returning to lobby
   const returnCountdown = useMemo(() => {
