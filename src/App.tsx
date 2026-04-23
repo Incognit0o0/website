@@ -1482,9 +1482,9 @@ function LobbyModal({ room, balance, onClose, onJoin, onBoost, isPlayingElsewher
         <div className="p-8 border-b border-neutral-800 flex justify-between items-center bg-gradient-to-r from-neutral-900 via-neutral-900 to-transparent">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-3xl font-display font-bold text-gold-100">{room.name}</h2>
+              <h2 className="text-3xl font-display font-bold text-gold-100">Арена: {room.name.replace('#', '№')}</h2>
               <span className="px-3 py-1 bg-gold-500/10 text-gold-500 border border-gold-500/20 rounded-full text-xs font-bold uppercase tracking-wider">
-                Арена: {themeMap[room.theme] || room.theme}
+                тема {room.theme === 'space' ? 'космос' : room.theme === 'f1' ? 'ф1' : 'лошади'}
               </span>
             </div>
             <p className="text-neutral-500 font-medium tracking-tight">ID Турнира: <span className="font-mono text-xs">{room.id.slice(0, 8)}</span> • Подготовка раунда</p>
@@ -1500,7 +1500,7 @@ function LobbyModal({ room, balance, onClose, onJoin, onBoost, isPlayingElsewher
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-display font-bold flex items-center gap-2 uppercase tracking-tight">
                 <Users className="w-5 h-5 text-gold-500" />
-                Сетка забега ({room.horses.length} участников)
+                Сетка игроков ({room.horses.length} участников)
               </h3>
               <div className="flex gap-4 text-xs font-bold uppercase tracking-widest scale-90 sm:scale-100 origin-right">
                 <div className="flex items-center gap-2 text-gold-500">

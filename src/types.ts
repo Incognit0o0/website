@@ -46,6 +46,7 @@ export interface Room {
   fairnessHash?: string;
   serverSeed?: string;
   createdAt: number;
+  lastEmptyAt?: number;
 }
 
 export interface User {

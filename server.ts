@@ -336,13 +336,25 @@ async function startServer() {
     const oldRoomsCount = rooms.length;
     rooms = rooms.filter(room => {
       const isInitial = room.id.startsWith('room-gen-');
-      const hasHuman = room.players.some(p => !p.isBot);
-      
       if (isInitial) return true;
-      if (hasHuman) return true;
+
+      const hasHuman = room.players.some(p => !p.isBot);
+      const isRacing = room.status === 'racing';
       
-      const ageMinutes = (now - room.createdAt) / 60000;
-      return ageMinutes < 3;
+      // If there's a human or the race is active, it's not inactive
+      if (hasHuman || isRacing) {
+        room.lastEmptyAt = undefined;
+        return true;
+      }
+      
+      // If it's empty and not racing, we track how long it's been empty
+      if (!room.lastEmptyAt) {
+        room.lastEmptyAt = now;
+        return true;
+      }
+
+      const idleMinutes = (now - room.lastEmptyAt) / 60000;
+      return idleMinutes < 3;
     });
     
     if (rooms.length !== oldRoomsCount && pool) {
@@ -385,7 +397,8 @@ async function startServer() {
         raceLog: [],
         serverSeed,
         fairnessHash,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        lastEmptyAt: Date.now()
       };
     });
   }
@@ -457,7 +470,8 @@ async function startServer() {
           raceLog: [],
           serverSeed,
           fairnessHash,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          lastEmptyAt: Date.now()
         };
         rooms.unshift(newRoom);
         broadcastToAll('ROOM_UPDATE', newRoom);
@@ -560,7 +574,8 @@ async function startServer() {
         raceLog: [],
         serverSeed,
         fairnessHash,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        lastEmptyAt: Date.now()
       };
       rooms.unshift(newRoom);
       // Try to sync to DB but don't block response if it fails
@@ -596,6 +611,7 @@ async function startServer() {
     if (user.balance < totalFee) return res.status(400).json({ error: 'Недостаточно средств' });
 
     await updateUserBalance(userId, -totalFee);
+    room.lastEmptyAt = undefined; // Room is no longer empty
     room.players.push({
       id: user.id,
       name: user.username,
@@ -654,6 +670,15 @@ async function startServer() {
     
     room.config = { ...room.config, ...config };
     
+    if (config && config.maxPlayers) {
+      const newMax = Number(config.maxPlayers);
+      if (newMax !== room.horses.length) {
+        room.horses = generateHorses(newMax, room.theme);
+        room.players = []; // Reset players since IDs changed and capacity is different
+        room.lastEmptyAt = Date.now();
+      }
+    }
+    
     if (config && config.timer) {
       const newTimer = Number(config.timer);
       if (newTimer >= 30) {
@@ -665,7 +690,7 @@ async function startServer() {
     }
 
     await updateRoom(room);
-    broadcastToRoom(room.id, room);
+    broadcastToAll('ROOM_UPDATE', room);
     res.json({ success: true, room });
   });
 
@@ -914,6 +939,7 @@ async function startServer() {
       room.status = 'waiting';
       room.timer = room.baseTimer || 60;
       room.players = [];
+      room.lastEmptyAt = Date.now();
       room.winnerHorseId = null;
       room.finishedAt = undefined;
       room.raceLog = [];
