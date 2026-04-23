@@ -267,7 +267,7 @@ async function startServer() {
         // We use a promise wrapper to implement a timeout for getConnection
         const connectionPromise = pool.getConnection();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('MySQL connection timeout')), 5000)
+          setTimeout(() => reject(new Error('MySQL connection timeout (30s exceeded)')), 30000)
         );
         
         const connection = await Promise.race([connectionPromise, timeoutPromise]) as any;
