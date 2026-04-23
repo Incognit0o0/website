@@ -256,6 +256,21 @@ async function startServer() {
       }
 
       console.log('Initializing database schema...');
+      // --- FORCE WIPE CODE ---
+      try {
+        console.log('!!! STARTING DATABASE WIPE !!!');
+        await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+        await pool.query('TRUNCATE TABLE rooms');
+        await pool.query('TRUNCATE TABLE history');
+        await pool.query('TRUNCATE TABLE stats');
+        await pool.query('TRUNCATE TABLE users');
+        await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+        console.log('!!! DATABASE WIPE SUCCESSFUL !!!');
+      } catch (wipeErr) {
+        console.error('Wipe failed:', wipeErr);
+      }
+      // --- END WIPE CODE ---
+
       // Create tables if they don't exist
       await pool.query(`
         CREATE TABLE IF NOT EXISTS rooms (
