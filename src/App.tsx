@@ -1346,6 +1346,12 @@ const RoomCard = React.memo(({ room, onSelect, isMyCreation, userId }: any) => {
 
 function LobbyModal({ room, balance, onClose, onJoin, onBoost, isPlayingElsewhere, userId }: { room: Room, balance: number, onClose: () => void, onJoin: (ids: string[]) => void, onBoost: (id: string) => void, isPlayingElsewhere: boolean, userId?: string }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  
+  useEffect(() => {
+    // If a selected horse was taken by someone else (Artem just joined), remove it from Matvey's selection
+    setSelectedIds(prev => prev.filter(id => !room.players.some(p => p.horseIds.includes(id))));
+  }, [room.players]);
+
   const isJoined = room.players.some(p => p.id === userId);
   const myPlayer = room.players.find(p => p.id === userId);
 
@@ -1357,6 +1363,9 @@ function LobbyModal({ room, balance, onClose, onJoin, onBoost, isPlayingElsewher
 
   const toggleHorse = (id: string) => {
     if (isJoined) return;
+    const isOwned = room.players.some(p => p.horseIds.includes(id));
+    if (isOwned) return;
+    
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id].slice(0, Math.floor(room.config.maxPlayers / 2))
     );
@@ -1417,12 +1426,15 @@ function LobbyModal({ room, balance, onClose, onJoin, onBoost, isPlayingElsewher
                 return (
                   <div 
                     key={horse.id}
-                    onClick={() => toggleHorse(horse.id)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col gap-3 relative overflow-hidden group/h ${
-                      isMine ? 'bg-gold-500/10 border-gold-500/40 shadow-inner shadow-gold-500/5' :
-                      isSelected ? 'bg-gold-500/5 border-gold-500/20' :
+                    onClick={() => {
+                      const isOwned = room.players.some(p => p.horseIds.includes(horse.id));
+                      if (!isOwned) toggleHorse(horse.id);
+                    }}
+                    className={`p-4 rounded-2xl border transition-all flex flex-col gap-3 relative overflow-hidden group/h ${
+                      isMine ? 'bg-gold-500/10 border-gold-500/40 shadow-inner shadow-gold-500/5 cursor-default' :
+                      isSelected ? 'bg-gold-500/5 border-gold-500/20 cursor-pointer' :
                       owner ? 'bg-neutral-800/20 border-neutral-800 opacity-70 cursor-not-allowed' :
-                      'bg-neutral-900 border-neutral-800 hover:border-gold-500/30'
+                      'bg-neutral-900 border-neutral-800 hover:border-gold-500/30 cursor-pointer'
                     }`}
                   >
                     <div className="flex items-center gap-4 relative z-10">

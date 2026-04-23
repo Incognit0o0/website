@@ -582,6 +582,13 @@ async function startServer() {
 
     if (room.status !== 'waiting') return res.status(400).json({ error: 'Игра уже началась' });
     
+    // Check if any of the requested horses are already taken
+    const occupiedHorses = new Set(room.players.flatMap(p => p.horseIds));
+    const requestedHorses = horseIds as string[];
+    if (requestedHorses.some(hid => occupiedHorses.has(hid))) {
+      return res.status(400).json({ error: 'Одна или несколько выбранных лошадей уже заняты другим игроком' });
+    }
+
     const isAlreadyPlaying = rooms.some(r => r.status !== 'finished' && r.players.some(p => p.id === userId));
     if (isAlreadyPlaying) return res.status(400).json({ error: 'Вы уже участвуете в другом заезде' });
 
@@ -615,7 +622,12 @@ async function startServer() {
     const user = await getUserById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    if (user.balance < room.config.boostCost) return res.status(400).json({ error: 'Insufficient balance' });
+    if (user.balance < room.config.boostCost) return res.status(400).json({ error: 'Недостаточно средств для буста' });
+
+    const player = room.players.find(p => p.id === userId);
+    if (!player || !player.horseIds.includes(horseId)) {
+      return res.status(403).json({ error: 'Вы можете ускорять только своих гонщиков' });
+    }
 
     const horse = room.horses.find(h => h.id === horseId);
     if (!horse) return res.status(404).json({ error: 'Horse not found' });
