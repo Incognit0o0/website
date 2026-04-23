@@ -1487,7 +1487,20 @@ function LobbyModal({ room, balance, onClose, onJoin, onBoost, isPlayingElsewher
                 тема {room.theme === 'space' ? 'космос' : room.theme === 'f1' ? 'ф1' : 'лошади'}
               </span>
             </div>
-            <p className="text-neutral-500 font-medium tracking-tight">ID Турнира: <span className="font-mono text-xs">{room.id.slice(0, 8)}</span> • Подготовка раунда</p>
+            <p className="text-neutral-500 font-medium tracking-tight flex items-center gap-4">
+              <span>ID Турнира: <span className="font-mono text-xs text-neutral-400">{room.id.slice(0, 8)}</span></span>
+              {room.fairnessHash && (
+                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-500/5 border border-blue-500/10 rounded-lg group/hash cursor-help relative" title={room.fairnessHash}>
+                  <ShieldCheck className="w-3 h-3 text-blue-400" />
+                  <span className="text-[10px] font-bold text-blue-400/80 uppercase tracking-widest">Provably Fair</span>
+                  <span className="font-mono text-[10px] text-blue-400/60 hidden sm:inline ml-1">
+                    {room.fairnessHash.slice(0, 8)}...{room.fairnessHash.slice(-8)}
+                  </span>
+                </span>
+              )}
+              <span className="text-neutral-700">•</span>
+              <span>Подготовка раунда</span>
+            </p>
           </div>
           <button onClick={onClose} className="p-3 hover:bg-neutral-800 rounded-2xl transition-all hover:rotate-90">
             <X className="w-6 h-6 text-neutral-500" />
@@ -2011,11 +2024,23 @@ function RaceStage({ room, onBack, addToast, userId }: { room: Room, onBack: () 
             <h2 className="text-xl md:text-3xl font-display font-bold text-gold-400 uppercase tracking-tighter drop-shadow-[0_0_10px_rgba(251,189,35,0.3)]">
               {room.name}
             </h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`w-2 h-2 rounded-full ${isFinished ? 'bg-gold-500' : 'bg-red-500 animate-pulse'}`} />
-              <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
-                {isFinished ? 'Финиш' : 'Трансляция'}
-              </span>
+            <div className="flex items-center gap-3 mt-1">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${isFinished ? 'bg-gold-500' : 'bg-red-500 animate-pulse'}`} />
+                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
+                  {isFinished ? 'Финиш' : 'Трансляция'}
+                </span>
+              </div>
+              
+              {room.fairnessHash && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded-lg" title={room.fairnessHash}>
+                  <ShieldCheck className="w-3 h-3 text-gold-500/70" />
+                  <span className="text-[9px] font-bold text-gold-500/50 uppercase tracking-widest">Hash:</span>
+                  <span className="font-mono text-[9px] text-white/40">
+                    {room.fairnessHash.slice(0, 4)}...{room.fairnessHash.slice(-4)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2103,6 +2128,15 @@ function RaceStage({ room, onBack, addToast, userId }: { room: Room, onBack: () 
                     {(room.config.entryFee * room.horses.length * room.config.rewardPercentage).toLocaleString()} <span className="text-xl">B</span>
                   </div>
                 </div>
+
+                {room.fairnessHash && (
+                  <div className="mb-8 px-4 py-3 bg-white/5 rounded-2xl border border-white/10">
+                    <div className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mb-1">Финальный хэш раунда</div>
+                    <div className="font-mono text-[10px] text-gold-500/70 break-all leading-tight">
+                      {room.fairnessHash}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-4">
                   <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">
