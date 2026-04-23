@@ -2043,8 +2043,6 @@ function AdminPanel({ rooms, history, onBack, onOpenHistory, onCreateRoom, onUpd
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(rooms[0]?.id ? [rooms[0].id] : []);
   const [editingConfig, setEditingConfig] = useState<any>(null);
 
-  const isBulkMode = selectedRoomIds.length > 1;
-
   useEffect(() => {
     if (selectedRoomIds.length === 1) {
       const room = rooms.find(r => r.id === selectedRoomIds[0]);
@@ -2053,16 +2051,6 @@ function AdminPanel({ rooms, history, onBack, onOpenHistory, onCreateRoom, onUpd
           ...room.config,
           timer: room.baseTimer || room.timer || 60,
           commission: Math.round(room.config.commissionRate * 100)
-        });
-      }
-    } else if (isBulkMode && !editingConfig?.isModifiedInBulk) {
-      const baseRoom = rooms.find(r => r.id === selectedRoomIds[0]) || rooms[0];
-      if (baseRoom) {
-        setEditingConfig({
-          ...baseRoom.config,
-          timer: baseRoom.baseTimer || baseRoom.timer || 60,
-          commission: Math.round(baseRoom.config.commissionRate * 100),
-          isModifiedInBulk: true
         });
       }
     }
@@ -2167,25 +2155,18 @@ function AdminPanel({ rooms, history, onBack, onOpenHistory, onCreateRoom, onUpd
   const handleUpdate = async () => {
     if (selectedRoomIds.length === 0 || warnings.some(w => w.type === 'error')) return;
     try {
-      const promises = selectedRoomIds.map(id => 
-        onUpdateConfig(id, {
-          ...editingConfig,
-          commissionRate: editingConfig.commission / 100,
-          rewardPercentage: winnerShare / 100
-        })
-      );
-      await Promise.all(promises);
+      await onUpdateConfig(selectedRoomIds[0], {
+        ...editingConfig,
+        commissionRate: editingConfig.commission / 100,
+        rewardPercentage: winnerShare / 100
+      });
     } catch (e) {
       console.error('Update failed', e);
     }
   };
 
-  const toggleRoom = (id: string) => {
-    setSelectedRoomIds(prev => 
-      prev.includes(id) 
-        ? (prev.length > 1 ? prev.filter(rid => rid !== id) : prev) 
-        : [...prev, id]
-    );
+  const selectRoom = (id: string) => {
+    setSelectedRoomIds([id]);
   };
 
   return (
@@ -2231,16 +2212,12 @@ function AdminPanel({ rooms, history, onBack, onOpenHistory, onCreateRoom, onUpd
           <div className="lg:col-span-4 glass rounded-[3rem] p-8 h-[800px] overflow-hidden flex flex-col border-neutral-800/50">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-xl font-display font-bold text-gold-100 uppercase tracking-tighter">Список Арен</h3>
-              <div className="flex gap-4">
-                <button onClick={() => setSelectedRoomIds(rooms.map(r => r.id))} className="text-xs font-bold text-gold-500 uppercase hover:underline">Все</button>
-                <button onClick={() => setSelectedRoomIds([rooms[0]?.id].filter(Boolean))} className="text-xs font-bold text-neutral-500 uppercase hover:underline">Сброс</button>
-              </div>
             </div>
             <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1">
               {rooms.map(room => (
                 <button
                   key={room.id}
-                  onClick={() => toggleRoom(room.id)}
+                  onClick={() => selectRoom(room.id)}
                   className={`w-full p-6 rounded-[2rem] flex items-center justify-between transition-all group border ${
                     selectedRoomIds.includes(room.id) 
                     ? 'bg-gold-500 text-neutral-950 font-bold border-gold-400' 
