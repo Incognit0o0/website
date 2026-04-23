@@ -361,6 +361,7 @@ export default function App() {
   const selectedRoom = useMemo(() => rooms.find(r => r.id === selectedRoomId), [rooms, selectedRoomId]);
 
   const [isAdminView, setIsAdminView] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const notifiedRacesRef = useRef<Set<string>>(new Set());
   const [adminStats, setAdminStats] = useState<any>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
@@ -562,6 +563,9 @@ export default function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка входа');
       setUser(data);
+      if (authMode === 'register') {
+        setShowTutorial(true);
+      }
       addToast(`Добро пожаловать, ${data.username}!`, 'success');
     } catch (err: any) {
       setAuthError(err.message);
@@ -571,7 +575,15 @@ export default function App() {
   const handleLogout = () => {
     setUser(null);
     setSelectedRoomId(null);
+    setShowTutorial(false);
     addToast('Вы вышли из системы', 'info');
+  };
+
+  const handleTutorialClose = () => {
+    if (user) {
+      localStorage.setItem(`tutorial_seen_${user.id}`, 'true');
+    }
+    setShowTutorial(false);
   };
 
   const updateRoomConfig = async (roomId: string, config: any) => {
@@ -1129,7 +1141,94 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showTutorial && (
+          <WelcomeTutorialModal onClose={handleTutorialClose} />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function WelcomeTutorialModal({ onClose }: { onClose: () => void }) {
+  const tutorialSteps = [
+    {
+      title: 'Выбор Арены',
+      desc: 'От классических скачек до футуристичных гонок в космосе. Каждая арена имеет свой взнос и регламент.',
+      icon: <Rocket className="w-5 h-5 text-gold-500" />
+    },
+    {
+      title: 'Ставки на победу',
+      desc: 'Выбирайте одного или нескольких гонщиков. Больше гонщиков — выше вероятность забрать банк.',
+      icon: <Users className="w-5 h-5 text-blue-400" />
+    },
+    {
+      title: 'Система Бустеров',
+      desc: 'Купите бустер, чтобы увеличить силу своего гонщика в 1.5 раза. Опередите соперников на финише!',
+      icon: <Zap className="w-5 h-5 text-gold-400" />
+    },
+    {
+      title: 'Честная игра',
+      desc: 'Используем Provably Fair. Весь призовой фонд за вычетом комиссии уходит победителю мгновенно.',
+      icon: <ShieldCheck className="w-5 h-5 text-green-500" />
+    }
+  ];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-3xl"
+    >
+      <motion.div 
+        initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
+        className="glass max-w-2xl w-full rounded-[3.5rem] p-10 md:p-14 border-gold-500/20 relative overflow-hidden text-center"
+      >
+        <div className="absolute top-0 right-0 p-32 opacity-[0.03] pointer-events-none">
+          <Sparkles className="w-96 h-96 text-gold-500 rotate-12" />
+        </div>
+
+        <div className="inline-flex items-center gap-2 px-6 py-2 bg-gold-400/10 border border-gold-400/20 rounded-full mb-8">
+          <Sparkles className="w-4 h-4 text-gold-400" />
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gold-200">LEVEL UP YOUR GAME</span>
+        </div>
+
+        <h2 className="text-4xl md:text-5xl font-display font-bold text-white mb-6 italic tracking-tighter">
+          Добро пожаловать в <span className="text-gold-500">Элиту!</span>
+        </h2>
+        
+        <p className="text-neutral-500 font-medium max-w-sm mx-auto leading-relaxed mb-12">
+          Вы стали участником самой закрытой гоночной арены. Вот как здесь всё устроено:
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left mb-12">
+          {tutorialSteps.map((s, i) => (
+            <motion.div 
+              key={i}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 + i * 0.1 }}
+              className="flex gap-4"
+            >
+              <div className="w-12 h-12 shrink-0 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center shadow-inner">
+                {s.icon}
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-neutral-100 mb-1 uppercase tracking-tight">{s.title}</h4>
+                <p className="text-[11px] text-neutral-500 leading-relaxed font-medium">{s.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        <button 
+          onClick={onClose}
+          className="w-full py-6 rounded-2xl bg-gold-500 text-neutral-950 font-black text-xl hover:bg-gold-400 hover:shadow-2xl hover:shadow-gold-500/20 active:scale-95 transition-all shadow-xl uppercase tracking-widest"
+        >
+          Всё ясно, погнали!
+        </button>
+      </motion.div>
+    </motion.div>
   );
 }
 
