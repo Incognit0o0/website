@@ -14,9 +14,34 @@ const connectionString = process.env.DATABASE_URL;
 let pool: any = null;
 
 try {
-  if (connectionString && (connectionString.startsWith('mysql://') || !connectionString.includes('://'))) {
-    console.log('Using MySQL connection from DATABASE_URL');
-    pool = mysql.createPool(connectionString);
+  if (connectionString) {
+    console.log('Detected DATABASE_URL, configuring connection...');
+    
+    // Aiven and some other providers add ?ssl-mode=REQUIRED which mysql2 doesn't like as a parameter
+    // We'll strip query params and manually configure SSL which is safer for mysql2
+    const dbUrl = new URL(connectionString.startsWith('mysql://') ? connectionString : `mysql://${connectionString}`);
+    
+    const config: any = {
+      host: dbUrl.hostname,
+      port: Number(dbUrl.port) || 3306,
+      user: dbUrl.username,
+      password: decodeURIComponent(dbUrl.password),
+      database: dbUrl.pathname.substring(1),
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      connectTimeout: 20000, // Increase timeout for cloud roundtrips
+    };
+
+    // Always enable SSL for Aiven/Cloud DBs or if requested
+    if (connectionString.includes('aivencloud.com') || process.env.MYSQL_SSL === 'true') {
+      console.log('Forcing SSL for cloud database connection');
+      config.ssl = {
+        rejectUnauthorized: false
+      };
+    }
+
+    pool = mysql.createPool(config);
   } else if (process.env.MYSQL_HOST) {
     console.log('Using MySQL environment variables');
     pool = mysql.createPool({
@@ -25,7 +50,8 @@ try {
       user: process.env.MYSQL_USER,
       password: process.env.MYSQL_PASSWORD,
       database: process.env.MYSQL_DATABASE,
-      ssl: process.env.MYSQL_SSL === 'true' || process.env.MYSQL_HOST.includes('clouddb.oraclecloud.com') ? { rejectUnauthorized: false } : undefined
+      ssl: process.env.MYSQL_SSL === 'true' || process.env.MYSQL_HOST.includes('clouddb.oraclecloud.com') ? { rejectUnauthorized: false } : undefined,
+      connectTimeout: 20000
     });
   } else {
     console.warn('No MySQL configuration found. Will use in-memory fallback.');
@@ -256,21 +282,6 @@ async function startServer() {
       }
 
       console.log('Initializing database schema...');
-      // --- FORCE WIPE CODE ---
-      try {
-        console.log('!!! STARTING DATABASE WIPE !!!');
-        await pool.query('SET FOREIGN_KEY_CHECKS = 0');
-        await pool.query('TRUNCATE TABLE rooms');
-        await pool.query('TRUNCATE TABLE history');
-        await pool.query('TRUNCATE TABLE stats');
-        await pool.query('TRUNCATE TABLE users');
-        await pool.query('SET FOREIGN_KEY_CHECKS = 1');
-        console.log('!!! DATABASE WIPE SUCCESSFUL !!!');
-      } catch (wipeErr) {
-        console.error('Wipe failed:', wipeErr);
-      }
-      // --- END WIPE CODE ---
-
       // Create tables if they don't exist
       await pool.query(`
         CREATE TABLE IF NOT EXISTS rooms (
